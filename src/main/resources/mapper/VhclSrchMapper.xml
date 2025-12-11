@@ -3,21 +3,4 @@
 
 <mapper namespace="com.rhsnc.ovpe.mapper.VhclSrchMapper">
     
-    <!-- 등록정보 조회 -->
-    <select id="selectVhclInfo" parameterType="String" resultType="CegCarMig">
-        SELECT
-            *
-        FROM CEG_CAR_MIG
-        WHERE VHRNO = #{carRegNo}
-    </select>
-
-    <!-- 검사정보 목록 조회 -->
-    <select id="selectInspInfoList" parameterType="String" resultType="TbEetHisMe">
-        SELECT
-            *
-        FROM TB_EET_HIS_ME
-        WHERE CAR_REG_NO = #{carRegNo}
-        ORDER BY SMO_CHK_DATE DESC
-    </select>
-
 </mapper> 

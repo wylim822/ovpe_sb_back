@@ -1,4 +1,4 @@
-package com.rhsnc.ovpe.service;
+package com.rhsnc.ovpe.service.impl;
 
 import java.util.HashMap;
 import java.util.List;
@@ -8,27 +8,28 @@ import org.springframework.stereotype.Service;
 
 import com.rhsnc.ovpe.domain.CegCarMig;
 import com.rhsnc.ovpe.domain.TbEetHisMe;
-import com.rhsnc.ovpe.mapper.VhclSrchMapper;
+import com.rhsnc.ovpe.mapper.VhclAnlsMapper;
+import com.rhsnc.ovpe.service.VhclAnlsService;
 
 @Service
-public class VhclSrchServiceImpl implements VhclSrchService {
+public class VhclAnlsServiceImpl implements VhclAnlsService{
+    
+    private final VhclAnlsMapper vhclAnlsMapper;
 
-    private final VhclSrchMapper vhclSrchMapper;
-
-    public VhclSrchServiceImpl(VhclSrchMapper vhclSrchMapper) {
-        this.vhclSrchMapper = vhclSrchMapper;
+    public VhclAnlsServiceImpl(VhclAnlsMapper vhclAnlsMapper) {
+        this.vhclAnlsMapper = vhclAnlsMapper;
     }
     
     // 등록정보 조회
     @Override
     public CegCarMig getVhclInfo(String carRegNo){
-        return vhclSrchMapper.selectVhclInfo(carRegNo);
+        return vhclAnlsMapper.selectVhclInfo(carRegNo);
     }
 
     // 검사정보 목록 조회
     @Override
     public List<TbEetHisMe> getInspInfoList(String carRegNo) {
-        return vhclSrchMapper.selectInspInfoList(carRegNo);
+        return vhclAnlsMapper.selectInspInfoList(carRegNo);
     }
 
     // chatGpt API 호출 (!!추후 수정)
