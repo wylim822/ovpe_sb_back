@@ -1,6 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.rhsnc.ovpe.mapper.VhclSrchMapper">
-    
-</mapper> 
+
+    <resultMap id="tbSrchKeyMap" type="com.rhsnc.ovpe.domain.TbSrchKey">
+
+        <!-- 좌측(TB_SRCH_KEY_NM_ENG) -->
+        <result column="vnmEng" property="vnmEng"/>
+        <result column="vfulEng" property="vfulEng"/>
+        <result column="engtEng" property="engtEng"/>
+        <result column="cntvmyEng" property="cntvmyEng"/>
+        <result column="sntEng" property="sntEng"/>
+
+        <!-- 우측(TB_SRCH_KEY_ALL) -->
+        <result column="vnmAll" property="vnmAll"/>
+        <result column="vmyAll" property="vmyAll"/>
+        <result column="vfulAll" property="vfulAll"/>
+        <result column="engtAll" property="engtAll"/>
+        <result column="sntAll" property="sntAll"/>
+
+    </resultMap>
+
+    <!-- 메인 그리드 조회 -->
+    <select id="selectTbSrchKeyList" resultMap="tbSrchKeyMap">
+        SELECT
+            /* NM_ENG */
+            a.vnm     AS vnmEng,
+            a.vful    AS vfulEng,
+            a.engt    AS engtEng,
+            a.cntvmy  AS cntvmyEng,
+            a.snt     AS sntEng,
+
+            /* ALL */
+            b.vnm     AS vnmAll,
+            b.vmy     AS vmyAll,
+            b.vful    AS vfulAll,
+            b.engt    AS engtAll,
+            b.snt     AS sntAll
+
+        FROM TB_SRCH_KEY_NM_ENG a
+        LEFT OUTER JOIN TB_SRCH_KEY_ALL b
+            ON a.VNM = b.VNM
+           AND a.VFUL = b.VFUL
+           AND a.ENGT = b.ENGT
+        ORDER BY a.SNT DESC
+    </select>
+
+    <!-- 서브 그리드 조회 -->
+    <select id="selectMigDetail" parameterType="map" resultType="com.rhsnc.ovpe.domain.CegCarMig">
+        SELECT *
+        FROM CEG_CAR_MIG
+        WHERE vhcnm = #{vhcnm}
+            AND VHCL_YRIDNW = #{vhclYridnw}
+            AND EGINTY = #{eginty}
+            AND fuel = #{fuel}
+    </select>
+
+
+</mapper>
