@@ -14,7 +14,7 @@ public class CegCarMig {
     private String vin;                 // 차대번호
     private String fstRegDe;            // 최초 등록 일자
     private String vhclYridnw;          // 차량연식
-    private String vhclMnfctDe;        // 차량 제작 일자
+    private String vhclMnfctDe;         // 차량 제작 일자
     private String emisInspEfctDe;      // 배출가스 검사 유효 일자
     private String srcmnno;             // 제원관리번호
     private String emisCrtcno;          // 배출가스 인증번호
@@ -31,10 +31,10 @@ public class CegCarMig {
     private String carFrm;              // 자동차 형식
     private String mkrNm;               // 제작사명
     private String fuel;                // 연료
-    private String eginty;             // 엔진형식
+    private String eginty;              // 엔진형식
     private String totWght;             // 총중량
     private String cryngWght;           // 적재중량
-    private String eginpwr;            // 엔진출력
+    private String eginpwr;             // 엔진출력
     private String dsplvl;              // 배기량
     private String tkcarNmpr;           // 승차인원
     private String vhclLt;              // 차량길이

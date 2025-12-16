@@ -1,10 +1,12 @@
 package com.rhsnc.ovpe.mapper;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.ibatis.annotations.Mapper;
 
 import com.rhsnc.ovpe.domain.CegCarMig;
+import com.rhsnc.ovpe.domain.TbAnlsMe;
 import com.rhsnc.ovpe.domain.TbEetHisMe;
 
 @Mapper
@@ -14,4 +16,7 @@ public interface VhclAnlsMapper {
 
     // 검사정보 목록 조회
     List<TbEetHisMe> selectInspInfoList(String carRegNo);
+
+    // 분석DB 조회
+    TbAnlsMe selectAnlsInfo(Map<String, Object> paramMap);
 }

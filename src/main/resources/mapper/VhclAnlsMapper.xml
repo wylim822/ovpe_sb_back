@@ -20,4 +20,15 @@
         ORDER BY SMO_CHK_DATE DESC
     </select>
 
+    <select id="selectAnlsInfo" parameterType="map" resultType="TbAnlsMe">
+        SELECT #{vtxt} AS ITEM_NM, CONCAT(LIM, ', ', GROUP_CONCAT(CONCAT('(', VAL, ',', CNT, ')') ORDER BY VAL SEPARATOR ', ')) AS VALSET
+        FROM (
+            SELECT VNM, VFUL, ENGT, VMY, CHKM, VTAG, LIM, ABS(VAL) AS VAL, SUM(CNT) AS CNT FROM TB_ANLS_ME
+            WHERE CHKM = #{chkm}
+            AND VNM = #{vnm} AND VFUL = #{vful} AND ENGT = #{engt} AND VMY = #{vmy}
+            AND VTAG = #{vtag} AND LIM = #{limVal}
+            GROUP BY VNM, VFUL, ENGT, VMY, CHKM, VTAG, LIM, ABS(VAL)
+        ) AA
+        GROUP BY LIM
+    </select>
 </mapper> 

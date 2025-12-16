@@ -14,5 +14,5 @@ public interface VhclAnlsService {
     List<TbEetHisMe> getInspInfoList(String carRegNo);
 
     // !!추후수정
-    Map<String, Object> callGptApi(CegCarMig vhclInfo);
+    Map<String, Object> callGptApi(CegCarMig vhclInfo, List<TbEetHisMe> inspInfoList);
 }

@@ -32,14 +32,15 @@ public class VhclAnlsController {
 
         // 01. 등록정보 조회
         CegCarMig vhclInfo = vhclAnlsService.getVhclInfo(carRegNo);
-        System.out.println("@@vhclInfo: " + vhclInfo);
 
         if(vhclInfo != null){
             // 02. 검사정보 목록 조회 (INDIVIDUAL_INSPECTION)
             inspInfoList = vhclAnlsService.getInspInfoList(carRegNo);
 
-            // 03. chatGPT API 호출 - !!추후 수정
-            apiInfo = vhclAnlsService.callGptApi(vhclInfo);
+            if(inspInfoList.size() > 0){
+                // 03. chatGPT API 호출 - !!추후 수정
+            apiInfo = vhclAnlsService.callGptApi(vhclInfo, inspInfoList);
+            }
         }
         
         // 최종 리턴 값 지정
@@ -47,7 +48,7 @@ public class VhclAnlsController {
         rslt.put("inspInfoList", inspInfoList); 
         rslt.put("apiInfo", apiInfo);
 
-        System.out.println("@@최종 rslt: " + rslt);
+        // System.out.println("@@최종 rslt: " + rslt);
         return rslt; 
     }
 }
