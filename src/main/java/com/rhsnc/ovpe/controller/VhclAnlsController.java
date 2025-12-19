@@ -22,13 +22,13 @@ import lombok.RequiredArgsConstructor;
 public class VhclAnlsController {
     private final VhclAnlsService vhclAnlsService;
 
-    @PostMapping("/anlsCarRegNo")
-    public Map<String, Object> vhclAnls(@RequestBody Map<String, String> request){
+    // 차량 기본정보 조회 (등록정보, 검사정보)
+    @PostMapping("/vhclBscInfo")
+    public Map<String, Object> vhclBasicInfo(@RequestBody Map<String, String> request) {
         String carRegNo = request.get("carRegNo");
 
         Map<String, Object> rslt = new HashMap<>();
         List<TbEetHisMe> inspInfoList = new ArrayList<>();  // 검사정보 목록 조회
-        Map<String, Object> apiInfo = new HashMap<>();      // API 호출 결과
 
         // 01. 등록정보 조회
         CegCarMig vhclInfo = vhclAnlsService.getVhclInfo(carRegNo);
@@ -36,19 +36,38 @@ public class VhclAnlsController {
         if(vhclInfo != null){
             // 02. 검사정보 목록 조회 (INDIVIDUAL_INSPECTION)
             inspInfoList = vhclAnlsService.getInspInfoList(carRegNo);
-
-            if(inspInfoList.size() > 0){
-                // 03. chatGPT API 호출 - !!추후 수정
-            apiInfo = vhclAnlsService.callGptApi(vhclInfo, inspInfoList);
-            }
         }
         
         // 최종 리턴 값 지정
         rslt.put("vhclInfo", vhclInfo);
         rslt.put("inspInfoList", inspInfoList); 
-        rslt.put("apiInfo", apiInfo);
 
-        // System.out.println("@@최종 rslt: " + rslt);
         return rslt; 
+    }
+
+    // 차량 분석정보 조회 및 ChatGPT API 호출
+    @PostMapping("/vhclAnlsInfo")
+    public Map<String, Object> vhclAnlsInfo(@RequestBody Map<String, Object> vhclInfo) {
+    //public ResponseEntity<?> vhclAnlsInfo(@RequestBody Map<String, Object> vhclInfo) {
+        Map<String, Object> apiInfo = new HashMap<>();
+        apiInfo = vhclAnlsService.getVhclAnlsInfo(vhclInfo);    // 분석DB 조회 및 ChatGPT API 호출
+
+        // if(apiInfo == null) {
+        //     return ResponseEntity.ok().body(null);
+        // }
+
+        // return ResponseEntity.ok(apiInfo);
+
+        return apiInfo;
+    }
+
+    // API 호출 테스트 (!!추후 정리 필요)
+    @PostMapping("/callApiTest")
+    public Map<String, Object> callApiTest(@RequestBody Map<String, Object> req) {
+        Map<String, Object> callRslt = new HashMap<>();
+        String apiRslt = vhclAnlsService.getCallApiRslt(req);
+
+        callRslt.put("anlsMsg", apiRslt);
+        return callRslt;
     }
 }

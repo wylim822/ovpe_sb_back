@@ -20,15 +20,256 @@
         ORDER BY SMO_CHK_DATE DESC
     </select>
 
-    <select id="selectAnlsInfo" parameterType="map" resultType="TbAnlsMe">
-        SELECT #{vtxt} AS ITEM_NM, CONCAT(LIM, ', ', GROUP_CONCAT(CONCAT('(', VAL, ',', CNT, ')') ORDER BY VAL SEPARATOR ', ')) AS VALSET
-        FROM (
-            SELECT VNM, VFUL, ENGT, VMY, CHKM, VTAG, LIM, ABS(VAL) AS VAL, SUM(CNT) AS CNT FROM TB_ANLS_ME
-            WHERE CHKM = #{chkm}
-            AND VNM = #{vnm} AND VFUL = #{vful} AND ENGT = #{engt} AND VMY = #{vmy}
-            AND VTAG = #{vtag} AND LIM = #{limVal}
-            GROUP BY VNM, VFUL, ENGT, VMY, CHKM, VTAG, LIM, ABS(VAL)
-        ) AA
-        GROUP BY LIM
+
+    <!-- 휘발유 분석DB 조회 01 (변수값 조회) -->
+    <select id="selectLatestInspVarsG" parameterType="String" resultType="map">
+        SELECT
+            CAR_REG_NO AS V_LPN
+            , CAR_NM AS V_VNM
+            , CASE WHEN CAR_FUEL_NM LIKE '휘발유%' THEN '휘발유' ELSE CAR_FUEL_NM END AS V_VFUL
+            , ENGINE_TYPE AS V_ENGT
+            , CAR_YEAR AS V_VMY
+            , FLOOR(REPLACE(IFNULL(CAR_MILE, '0'), ',', '') / 10000) * 10000 AS V_RML
+            , SMO_CHK_METHOD AS V_CHKM
+            , SUBSTR(SMO_CHK_DATE, 1, 4) AS V_CHKY
+            , UNLOAD_SMO_LIM1 AS V_LIM1
+            , UNLOAD_SMO_LIM2 AS V_LIM2
+            , UNLOAD_SMO_LIM3 AS V_LIM3
+            , UNLOAD_SMO_LIM4 AS V_LIM4
+            , UNLOAD_SMO_LIM5 AS V_LIM5
+            , UNLOAD_SMO_LIM6 AS V_LIM6
+            , CAR_FUEL_NM
+            , CAR_TYPE_NM
+        FROM TB_EET_HIS_ME
+        WHERE CAR_REG_NO = #{vhrno}
+        ORDER BY SMO_CHK_DATE DESC
+        LIMIT 1
     </select>
+
+    <!-- 휘발유 분석DB 조회 02-->
+    <select id="selectAnlsRptAllG" parameterType="map" resultType="string">
+        WITH 
+        /* (A) 분석 데이터용 CTE: 년도별 */
+        ANLS_YEAR AS (
+            SELECT VTAG, ABS(VAL) AS VAL, SUM(CNT) AS CNT
+            FROM TB_ANLS_ME
+            WHERE CHKM = #{V_CHKM} AND VNM = #{V_VNM} AND VFUL = #{V_VFUL} 
+            AND ENGT = #{V_ENGT} AND VMY = #{V_VMY}
+            AND (<include refid="limFilterConditions"/>)
+            GROUP BY VTAG, ABS(VAL)
+        ),
+        /* (B) 분석 데이터용 CTE: 주행거리별 */
+        ANLS_MILE AS (
+            SELECT VTAG, ABS(VAL) AS VAL, SUM(CNT) AS CNT
+            FROM TB_ANLS_ME
+            WHERE CHKM = #{V_CHKM} AND VNM = #{V_VNM} AND VFUL = #{V_VFUL} 
+            AND ENGT = #{V_ENGT} AND RMLG = #{V_RML}
+            AND (<include refid="limFilterConditions"/>)
+            GROUP BY VTAG, ABS(VAL)
+        )
+
+        SELECT COL1 FROM (
+            /* 1) 차량정보 섹션 */
+            SELECT '1) 차량정보' AS COL1, 10 AS ORD1, 0 AS ORD2
+            UNION ALL SELECT CONCAT('차번: ', #{V_LPN}), 10, 1
+            UNION ALL SELECT CONCAT('차명: ', #{V_VNM}), 10, 2
+            UNION ALL SELECT CONCAT('연료: ', #{CAR_FUEL_NM}), 10, 3
+            UNION ALL SELECT CONCAT('엔진: ', #{V_ENGT}), 10, 4
+            UNION ALL SELECT CONCAT('차종: ', SUBSTRING(#{CAR_TYPE_NM}, 1, 2)), 10, 5
+            UNION ALL SELECT CONCAT('연식: ', #{V_VMY}), 10, 6
+            UNION ALL SELECT CONCAT('거리: ', #{V_RML}), 10, 7
+            UNION ALL SELECT '--', 10, 8
+
+            /* 2) 검사정보 섹션 */
+            UNION ALL SELECT CONCAT('2) 검사정보 모드: ', #{V_CHKM}), 20, 0
+            UNION ALL SELECT <include refid="historyHeaderMapping"/>, 20, 1
+            
+            /* 2-1) 과거 검사 이력 데이터 로딩 */
+            UNION ALL
+            SELECT <include refid="historyRowMapping"/>, 20, 2
+            FROM TB_EET_HIS_ME
+            WHERE CAR_REG_NO = #{V_LPN}
+            AND SMO_CHK_JUDGE_YN = 'Y'
+            AND SMO_CHK_METHOD = #{V_CHKM}
+            
+            UNION ALL SELECT '--', 20, 999
+
+            /* 3) 분석 DB 섹션 */
+            UNION ALL SELECT '3) 분석 DB : ', 30, 0
+            UNION ALL SELECT CONCAT('(1) 최근 검사년도 기준 : ', #{V_CHKY}, '년'), 30, 1
+            UNION ALL SELECT '검사방법, 항목, 기준, (측정값, 대수), (측정값, 대수) ...', 30, 2
+            
+            UNION ALL
+            SELECT CONCAT(#{V_CHKM}, ', ', METRIC_NM, ', ', LIM_DISP, ', ', 
+                GROUP_CONCAT(CONCAT('(', VAL, ',', CNT, ')') ORDER BY VAL SEPARATOR ', '))
+                , 30, 3
+            FROM (SELECT A.*, <include refid="metricAndLimMapping"/> FROM ANLS_YEAR A) Y
+            WHERE METRIC_NM IS NOT NULL GROUP BY METRIC_NM, LIM_DISP
+
+            UNION ALL SELECT CONCAT('(2) 주행거리 : ', #{V_RML}, 'Km'), 30, 4
+            UNION ALL SELECT '검사방법, 항목, 기준, (측정값, 대수), (측정값, 대수) ...', 30, 5
+
+            UNION ALL
+            SELECT CONCAT(#{V_CHKM}, ', ', METRIC_NM, ', ', LIM_DISP, ', ', 
+                GROUP_CONCAT(CONCAT('(', VAL, ',', CNT, ')') ORDER BY VAL SEPARATOR ', '))
+                , 30, 6
+            FROM (SELECT A.*, <include refid="metricAndLimMapping"/> FROM ANLS_MILE A) M
+            WHERE METRIC_NM IS NOT NULL GROUP BY METRIC_NM, LIM_DISP
+
+        ) T
+        ORDER BY ORD1, ORD2
+    </select>
+
+    <sql id="historyHeaderMapping">
+        CASE 
+            WHEN #{V_CHKM} = '부하검사(ASM-Idling)' THEN '검사년도, 주행거리, ASM CO 값, ASM CO 기준, ASM HC 값, ASM HC 기준, ASM NOX 값, ASM NOX 기준, IDLE CO 값, IDLE CO 기준, IDLE HC 값, IDLE HC 기준, 람다 값'
+            WHEN #{V_CHKM} = '부하검사(ASM2525)' THEN '검사년도, 주행거리, ASM CO 값, ASM CO 기준, ASM HC 값, ASM HC 기준, ASM NOX 값, ASM NOX 기준'
+            WHEN #{V_CHKM} = '무부하검사(TSI)' THEN '검사년도, 주행거리, 1차 CO 값, 1차 CO 기준, 1차 HC 값, 1차 HC 기준, 1차 람다 값, 2차 CO 값, 2차 CO 기준, 2차 HC 값, 2차 HC 기준, 2차 람다 값'
+            WHEN #{V_CHKM} = '무부하검사(정지가동)' THEN '검사년도, 주행거리, CO 값, CO 기준, HC 값, HC 기준, 람다 값'
+            ELSE '검사년도, 주행거리, 측정값, 기준'
+        END
+    </sql>
+
+    <sql id="historyRowMapping">
+        CASE 
+            WHEN #{V_CHKM} = '부하검사(ASM-Idling)' THEN CONCAT(SUBSTR(SMO_CHK_DATE,1,4),', ',CAR_MILE,', ',UNLOAD_SMO_VAL1,', ',UNLOAD_SMO_LIM1,', ',UNLOAD_SMO_VAL2,', ',UNLOAD_SMO_LIM2,', ',UNLOAD_SMO_VAL3,', ',UNLOAD_SMO_LIM3,', ',UNLOAD_SMO_VAL4,', ',UNLOAD_SMO_LIM4,', ',UNLOAD_SMO_VAL5,', ',UNLOAD_SMO_LIM5,', ',UNLOAD_SMO_VAL6)
+            WHEN #{V_CHKM} = '부하검사(ASM2525)' THEN CONCAT(SUBSTR(SMO_CHK_DATE,1,4),', ',CAR_MILE,', ',UNLOAD_SMO_VAL1,', ',UNLOAD_SMO_LIM1,', ',UNLOAD_SMO_VAL2,', ',UNLOAD_SMO_LIM2,', ',UNLOAD_SMO_VAL3,', ',UNLOAD_SMO_LIM3)
+            WHEN #{V_CHKM} = '무부하검사(TSI)' THEN CONCAT(SUBSTR(SMO_CHK_DATE,1,4),', ',CAR_MILE,', ',UNLOAD_SMO_VAL1,', ',UNLOAD_SMO_LIM1,', ',UNLOAD_SMO_VAL2,', ',UNLOAD_SMO_LIM2,', ',UNLOAD_SMO_VAL3,', ',UNLOAD_SMO_VAL4,', ',UNLOAD_SMO_LIM4,', ',UNLOAD_SMO_VAL5,', ',UNLOAD_SMO_LIM5,', ',UNLOAD_SMO_VAL6)
+            WHEN #{V_CHKM} = '무부하검사(정지가동)' THEN CONCAT(SUBSTR(SMO_CHK_DATE,1,4),', ',CAR_MILE,', ',UNLOAD_SMO_VAL1,', ',UNLOAD_SMO_LIM1,', ',UNLOAD_SMO_VAL2,', ',UNLOAD_SMO_LIM2,', ',UNLOAD_SMO_VAL3)
+            ELSE CONCAT(SUBSTR(SMO_CHK_DATE,1,4), ', ', CAR_MILE)
+        END
+    </sql>
+
+    <sql id="limFilterConditions">
+        (#{V_CHKM} = '부하검사(ASM2525)' AND VTAG IN ('V1','V2','V3') AND ((VTAG='V1' AND LIM=#{V_LIM1}) OR (VTAG='V2' AND LIM=#{V_LIM2}) OR (VTAG='V3' AND LIM=#{V_LIM3})))
+        OR (#{V_CHKM} = '부하검사(ASM-Idling)' AND VTAG IN ('V1','V2','V3','V4','V5') AND ((VTAG='V1' AND LIM=#{V_LIM1}) OR (VTAG='V2' AND LIM=#{V_LIM2}) OR (VTAG='V3' AND LIM=#{V_LIM3}) OR (VTAG='V4' AND LIM=#{V_LIM4}) OR (VTAG='V5' AND LIM=#{V_LIM5})))
+        OR (#{V_CHKM} = '무부하검사(정지가동)' AND VTAG IN ('V1','V2') AND ((VTAG='V1' AND LIM=#{V_LIM1}) OR (VTAG='V2' AND LIM=#{V_LIM2})))
+        OR (#{V_CHKM} = '무부하검사(TSI)' AND VTAG IN ('V1','V2','V4','V5') AND ((VTAG='V1' AND LIM=#{V_LIM1}) OR (VTAG='V2' AND LIM=#{V_LIM2}) OR (VTAG='V4' AND LIM=#{V_LIM4}) OR (VTAG='V5' AND LIM=#{V_LIM5})))
+    </sql>
+
+    <sql id="metricAndLimMapping">
+        CASE 
+            WHEN #{V_CHKM} = '부하검사(ASM-Idling)' THEN
+                CASE VTAG WHEN 'V1' THEN 'ASM CO' WHEN 'V2' THEN 'ASM HC' WHEN 'V3' THEN 'ASM NOX' WHEN 'V4' THEN 'IDLE CO' WHEN 'V5' THEN 'IDLE HC' END
+            WHEN #{V_CHKM} = '부하검사(ASM2525)' THEN
+                CASE VTAG WHEN 'V1' THEN 'ASM CO' WHEN 'V2' THEN 'ASM HC' WHEN 'V3' THEN 'ASM NOX' END
+            WHEN #{V_CHKM} = '무부하검사(TSI)' THEN
+                CASE VTAG WHEN 'V1' THEN '1차 CO' WHEN 'V2' THEN '1차 HC' WHEN 'V4' THEN '2차 CO' WHEN 'V5' THEN '2차 HC' END
+            WHEN #{V_CHKM} = '무부하검사(정지가동)' THEN
+                CASE VTAG WHEN 'V1' THEN 'CO' WHEN 'V2' THEN 'HC' END
+        END AS METRIC_NM,
+        CASE VTAG
+            WHEN 'V1' THEN #{V_LIM1} WHEN 'V2' THEN #{V_LIM2} WHEN 'V3' THEN #{V_LIM3}
+            WHEN 'V4' THEN #{V_LIM4} WHEN 'V5' THEN #{V_LIM5} WHEN 'V6' THEN #{V_LIM6}
+        END AS LIM_DISP
+    </sql>
+
+    <!-- 경유 분석DB 조회 01 (변수값 조회) -->
+    <select id="selectLatestInspVarsD" parameterType="String" resultType="map">
+        SELECT
+            CAR_REG_NO AS V_LPN
+            , CAR_NM AS V_VNM
+            , CAR_FUEL_NM AS CAR_FUEL_NM /* 원본 출력용 */
+            , CASE WHEN CAR_FUEL_NM LIKE '경유%' THEN '경유' ELSE CAR_FUEL_NM END AS V_VFUL
+            , ENGINE_TYPE AS V_ENGT
+            , CAR_YEAR AS V_VMY
+            , CAR_MILE AS V_RML_DISP /* 출력용 원본 거리 */
+            , FLOOR(REPLACE(IFNULL(CAR_MILE, '0'), ',', '') / 10000) * 10000 AS V_RML /* 분석용 절삭 거리 */
+            , SMO_CHK_METHOD AS V_CHKM
+            , SUBSTR(SMO_CHK_DATE, 1, 4) AS V_CHKY
+            , UNLOAD_SMO_LIM1 AS V_LIM
+            , CAR_TYPE_NM
+        FROM TB_EET_HIS_ME
+        WHERE CAR_REG_NO = #{vhrno}
+        ORDER BY SMO_CHK_DATE DESC
+        LIMIT 1
+    </select>
+
+    <!-- 경유 분석DB 조회 02-->
+    <select id="selectAnlsRptAllD" parameterType="map" resultType="string">
+        WITH 
+        /* (1) 최근 검사년도 기준 집계 */
+        ANLS_YEAR AS (
+            SELECT VTAG, LIM, ABS(VAL) AS VAL, SUM(CNT) AS CNT
+            FROM TB_ANLS_ME
+            WHERE CHKM = #{V_CHKM} AND VNM = #{V_VNM} AND VFUL = #{V_VFUL} 
+            AND ENGT = #{V_ENGT} AND VMY = #{V_VMY} AND LIM = #{V_LIM}
+            AND VTAG IN ('V1', 'V2', 'V3')
+            GROUP BY VTAG, LIM, ABS(VAL)
+        ),
+        /* (2) 주행거리 기준 집계 */
+        ANLS_MILE AS (
+            SELECT VTAG, LIM, ABS(VAL) AS VAL, SUM(CNT) AS CNT
+            FROM TB_ANLS_ME
+            WHERE CHKM = #{V_CHKM} AND VNM = #{V_VNM} AND VFUL = #{V_VFUL} 
+            AND ENGT = #{V_ENGT} AND RMLG = #{V_RML} AND LIM = #{V_LIM}
+            AND VTAG IN ('V1', 'V2', 'V3')
+            GROUP BY VTAG, LIM, ABS(VAL)
+        )
+
+        SELECT COL1 FROM (
+            /* 1) 차량정보 */
+            SELECT '1) 차량정보' AS COL1, 10 AS ORD1, 0 AS ORD2
+            UNION ALL SELECT CONCAT('차번: ', #{V_LPN}), 10, 1
+            UNION ALL SELECT CONCAT('차명: ', #{V_VNM}), 10, 2
+            UNION ALL SELECT CONCAT('연료: ', #{CAR_FUEL_NM}), 10, 3
+            UNION ALL SELECT CONCAT('엔진: ', #{V_ENGT}), 10, 4
+            UNION ALL SELECT CONCAT('차종: ', SUBSTRING(#{CAR_TYPE_NM}, 1, 2)), 10, 5
+            UNION ALL SELECT CONCAT('연식: ', #{V_VMY}), 10, 6
+            UNION ALL SELECT CONCAT('거리: ', #{V_RML_DISP}), 10, 7
+            UNION ALL SELECT '--', 10, 8
+
+            /* 2) 검사정보 */
+            UNION ALL SELECT CONCAT('2) 검사정보 모드: ', #{V_CHKM}), 20, 0
+            UNION ALL SELECT '검사년도, 주행거리, 매연 값, 매연 기준', 20, 1
+            UNION ALL
+            SELECT 
+                CONCAT(SUBSTR(SMO_CHK_DATE, 1, 4), ', ', CAR_MILE, ', ', UNLOAD_SMO_VAL1, ', ', UNLOAD_SMO_LIM1) AS COL1,
+                20 AS ORD1, 
+                2 AS ORD2
+            FROM TB_EET_HIS_ME
+            WHERE CAR_REG_NO = #{V_LPN} AND SMO_CHK_JUDGE_YN = 'Y'
+            UNION ALL SELECT '--', 20, 99
+
+            /* 3) 분석정보 - (1) 최근 검사년도 */
+            UNION ALL SELECT '3) 분석 DB : ', 30, 0
+            UNION ALL SELECT CONCAT('(1) 최근 검사년도 기준 : ', #{V_CHKY}, '년'), 30, 1
+            UNION ALL SELECT '검사방법, 항목, 기준, (측정값, 대수), (측정값, 대수), (측정값, 대수)  .......', 30, 2
+            
+            UNION ALL
+            SELECT 
+                CONCAT(#{V_CHKM}, ', ', 
+                    CASE VTAG WHEN 'V1' THEN '매연1' WHEN 'V2' THEN '매연2' WHEN 'V3' THEN '매연3' END, 
+                    ', ', LIM, ', ', GROUP_CONCAT(CONCAT('(', VAL, ',', CNT, ')') ORDER BY VAL SEPARATOR ', ')) AS COL1,
+                30 AS ORD1,
+                3 AS ORD2
+            FROM ANLS_YEAR 
+            GROUP BY VTAG, LIM
+
+            /* 3) 분석정보 - (2) 주행거리 */
+            UNION ALL SELECT CONCAT('(2) 주행거리 : ', #{V_RML_DISP}, 'Km'), 40, 0
+            UNION ALL SELECT '검사방법, 항목, 기준, (측정값, 대수), (측정값, 대수), (측정값, 대수)  .......', 40, 1
+            
+            UNION ALL
+            SELECT 
+                CONCAT(#{V_CHKM}, ', ', 
+                    CASE VTAG WHEN 'V1' THEN '매연1' WHEN 'V2' THEN '매연2' WHEN 'V3' THEN '매연3' END, 
+                    ', ', LIM, ', ', GROUP_CONCAT(CONCAT('(', VAL, ',', CNT, ')') ORDER BY VAL SEPARATOR ', ')) AS COL1,
+                40 AS ORD1,
+                2 AS ORD2
+            FROM ANLS_MILE 
+            GROUP BY VTAG, LIM
+        ) T
+        ORDER BY ORD1, ORD2
+    </select>
+
+    <!-- API SYSTEM TEXT 조회 -->
+    <select id="selectApiSystemText" parameterType="map" resultType="String">
+        SELECT SYSTEM_TEXT 
+        FROM api_system_text
+        WHERE INSPECTION_MODE_CODE = (SELECT CODE_VALUE FROM common_code WHERE CODE_TYPE = '검사측정모드' AND CODE_NAME = #{V_CHKM})
+            AND FUEL_TYPE_CODE = (SELECT CODE_VALUE FROM common_code WHERE CODE_TYPE = '유종' AND CODE_NAME = #{V_VFUL})
+            AND IS_ACTIVE = '1'
+    </select>
+
 </mapper> 

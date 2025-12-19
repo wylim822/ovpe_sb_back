@@ -18,7 +18,4 @@ public class TbAnlsMe {
     private String val;     // 측정값 구간
     private String cnt;
     
-    // 분석DB 조회용 (테스트)
-    private String itemNm;
-    private String valset;
 }
