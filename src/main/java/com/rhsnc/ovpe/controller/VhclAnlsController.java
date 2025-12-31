@@ -65,9 +65,11 @@ public class VhclAnlsController {
     @PostMapping("/callApiTest")
     public Map<String, Object> callApiTest(@RequestBody Map<String, Object> req) {
         Map<String, Object> callRslt = new HashMap<>();
-        String apiRslt = vhclAnlsService.getCallApiRslt(req);
+        //String apiRslt = vhclAnlsService.getCallApiRslt(req);
+        //callRslt.put("anlsMsg", apiRslt);
+        callRslt = vhclAnlsService.getCallApiRslt(req);
 
-        callRslt.put("anlsMsg", apiRslt);
+        //System.out.println("@@최종결과: " + callRslt);
         return callRslt;
     }
 }

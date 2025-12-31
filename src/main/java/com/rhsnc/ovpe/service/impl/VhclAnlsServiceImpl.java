@@ -2,6 +2,7 @@ package com.rhsnc.ovpe.service.impl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.rhsnc.ovpe.domain.CegCarMig;
 import com.rhsnc.ovpe.domain.TbEetHisMe;
 import com.rhsnc.ovpe.mapper.VhclAnlsMapper;
@@ -148,6 +151,7 @@ public class VhclAnlsServiceImpl implements VhclAnlsService{
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 // OpenAI 응답 JSON 구조 파싱
+                //System.out.println("@@getBody: " + response.getBody());
                 List<Map<String, Object>> choices = (List<Map<String, Object>>) response.getBody().get("choices");
                 Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
                 
@@ -161,13 +165,49 @@ public class VhclAnlsServiceImpl implements VhclAnlsService{
         return "API 결과를 받지 못했습니다.";
     }
 
+    // API 결과 파싱
+    private Map<String, Object> parseApiRslt(String apiRsltTxt){
+        apiRsltTxt = apiRsltTxt.replace("```json", "").replace("```", "").trim();
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(apiRsltTxt, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new RuntimeException("GPT 응답 JSON 파싱 실패", e);
+        }
+    }
+
+    // 항목별 분리
+    private Map<String, Object> extrJsonData(Map<String, Object> parsed){
+        Map<String, Object> rslt = new LinkedHashMap<>();
+
+        rslt.put("ovrlEvl", parsed.get("종합평가"));
+        rslt.put("ovrlGrd", parsed.get("종합등급"));
+        rslt.put("expcChg", parsed.get("향후 5년 운행 시 예상 변화"));
+        rslt.put("mntn", parsed.get("정비 권장사항"));
+        rslt.put("emisAnls", parsed.get("배출가스 분석"));
+        rslt.put("ageExpln", parsed.get("실질연식 및 연식이득"));
+        rslt.put("graphExpln", parsed.get("방사형 그래프 해석"));
+        rslt.put("rmnVal", parsed.get("잔존가치 해석"));
+        rslt.put("notice", parsed.get("중요 고지문"));
+
+        return rslt;
+    }
+
     // API호출 테스트 (!!추후 정리 필요)
     @Override
-    public String getCallApiRslt(Map<String, Object> req) {
+    public Map<String, Object> getCallApiRslt(Map<String, Object> req) {
         String systemMsg = (String)req.get("systemMsg");
         String userMsg = (String)req.get("userMsg");
         
-        String apiRslt = callAnlsApi(systemMsg, userMsg);
+        // ChatGPT API 호출
+        String apiRsltTxt = callAnlsApi(systemMsg, userMsg);
+
+        // 호출결과 JSON 파싱
+        Map<String, Object> parsed = parseApiRslt(apiRsltTxt);
+        
+        // 화면 리턴용 데이터 변환
+        Map<String, Object> apiRslt = extrJsonData(parsed);
 
         return apiRslt;
     }

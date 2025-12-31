@@ -17,5 +17,5 @@ public interface VhclAnlsService {
     Map<String, Object> getVhclAnlsInfo(Map<String, Object> vhclInfo);
 
     // API 호출 테스트 (!!추후 정리 필요)
-    String getCallApiRslt(Map<String,Object> req);
+    Map<String, Object> getCallApiRslt(Map<String,Object> req);
 }
