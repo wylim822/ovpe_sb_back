@@ -30,4 +30,10 @@ public interface VhclAnlsMapper {
     // API SYSTEM TEXT 조회
     String selectApiSystemText(Map<String,Object> inspInfo);
     
+    // 차트 전용 (연도 기준, 휘발유, 사용X)
+    List<Map<String, Object>> selectAnlsMetricDistYearG(Map<String, Object> params);
+
+    // 차트 전용 (주행거리 기준, 휘발유, 사용X)
+    List<Map<String, Object>> selectAnlsMetricDistMileageG(Map<String, Object> params);
+
 }

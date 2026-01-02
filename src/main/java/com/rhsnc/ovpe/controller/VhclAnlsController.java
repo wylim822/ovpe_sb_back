@@ -72,4 +72,11 @@ public class VhclAnlsController {
         //System.out.println("@@최종결과: " + callRslt);
         return callRslt;
     }
+
+    // 차트 전용 분석 데이터 조회
+    @PostMapping("/vhclAnlsMetricDist")
+    public Map<String, Object> vhclAnlsMetricDist(@RequestBody Map<String, Object> vhclInfo) {
+
+        return vhclAnlsService.getAnlsMetricDist(vhclInfo);
+    }
 }

@@ -18,4 +18,8 @@ public interface VhclAnlsService {
 
     // API 호출 테스트 (!!추후 정리 필요)
     Map<String, Object> getCallApiRslt(Map<String,Object> req);
+
+    // 차트용 분석 데이터 조회
+    Map<String, Object> getAnlsMetricDist(Map<String, Object> vhclInfo);
+
 }

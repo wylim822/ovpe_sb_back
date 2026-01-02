@@ -32,12 +32,23 @@
             , FLOOR(REPLACE(IFNULL(CAR_MILE, '0'), ',', '') / 10000) * 10000 AS V_RML
             , SMO_CHK_METHOD AS V_CHKM
             , SUBSTR(SMO_CHK_DATE, 1, 4) AS V_CHKY
+            
+            -- 허용치
             , UNLOAD_SMO_LIM1 AS V_LIM1
             , UNLOAD_SMO_LIM2 AS V_LIM2
             , UNLOAD_SMO_LIM3 AS V_LIM3
             , UNLOAD_SMO_LIM4 AS V_LIM4
             , UNLOAD_SMO_LIM5 AS V_LIM5
             , UNLOAD_SMO_LIM6 AS V_LIM6
+
+            -- 실측값(260102 추가)
+            , UNLOAD_SMO_VAL1 AS V_VAL1
+            , UNLOAD_SMO_VAL2 AS V_VAL2
+            , UNLOAD_SMO_VAL3 AS V_VAL3
+            , UNLOAD_SMO_VAL4 AS V_VAL4
+            , UNLOAD_SMO_VAL5 AS V_VAL5
+            , UNLOAD_SMO_VAL6 AS V_VAL6
+
             , CAR_FUEL_NM
             , CAR_TYPE_NM
         FROM TB_EET_HIS_ME
@@ -270,6 +281,52 @@
         WHERE INSPECTION_MODE_CODE = (SELECT CODE_VALUE FROM common_code WHERE CODE_TYPE = '검사측정모드' AND CODE_NAME = #{V_CHKM})
             AND FUEL_TYPE_CODE = (SELECT CODE_VALUE FROM common_code WHERE CODE_TYPE = '유종' AND CODE_NAME = #{V_VFUL})
             AND IS_ACTIVE = '1'
+    </select>
+
+    <!-- 차트용 쿼리 (사용X)-->
+    <select id="selectAnlsMetricDistYearG" parameterType="map" resultType="map">
+        WITH ANLS AS (
+            SELECT
+                VTAG,
+                ABS(VAL) AS VAL,
+                SUM(CNT) AS CNT
+            FROM TB_ANLS_ME
+            WHERE CHKM = #{V_CHKM}
+            AND VNM  = #{V_VNM}
+            AND VFUL = #{V_VFUL}
+            AND ENGT = #{V_ENGT}
+            AND VMY  = #{V_VMY}
+            AND (<include refid="limFilterConditions"/>)
+            GROUP BY VTAG, ABS(VAL)
+        )
+        SELECT
+            /* 항목명 */
+            <include refid="metricAndLimMapping"/>,
+            VAL,
+            CNT
+        FROM ANLS
+    </select>
+
+    <select id="selectAnlsMetricDistMileageG" parameterType="map" resultType="map">
+        WITH ANLS AS (
+            SELECT
+                VTAG,
+                ABS(VAL) AS VAL,
+                SUM(CNT) AS CNT
+            FROM TB_ANLS_ME
+            WHERE CHKM = #{V_CHKM}
+            AND VNM  = #{V_VNM}
+            AND VFUL = #{V_VFUL}
+            AND ENGT = #{V_ENGT}
+            AND RMLG = #{V_RML}
+            AND (<include refid="limFilterConditions"/>)
+            GROUP BY VTAG, ABS(VAL)
+        )
+        SELECT
+            <include refid="metricAndLimMapping"/>,
+            VAL,
+            CNT
+        FROM ANLS
     </select>
 
 </mapper> 

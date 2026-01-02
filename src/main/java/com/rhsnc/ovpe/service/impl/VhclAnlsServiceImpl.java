@@ -34,7 +34,16 @@ public class VhclAnlsServiceImpl implements VhclAnlsService{
     // API KEY 값 (application.properties)
     @Value("${openai.api.key}")
     private String apiKey;
-    
+
+    private static final Map<String, String> METRIC_MYVAL_MAP = Map.of(
+        "ASM CO", "V_VAL1",
+        "ASM HC", "V_VAL2",
+        "ASM NOX", "V_VAL3",
+        "IDLE CO", "V_VAL4",
+        "IDLE HC", "V_VAL5",
+        "LAMBDA", "V_VAL6"
+    );
+
     // 등록정보 조회
     @Override
     public CegCarMig getVhclInfo(String carRegNo){
@@ -211,4 +220,64 @@ public class VhclAnlsServiceImpl implements VhclAnlsService{
 
         return apiRslt;
     }
+
+    // 차트용
+    @Override
+    public Map<String, Object> getAnlsMetricDist(Map<String, Object> vhclInfo) {
+
+        Map<String, Object> result = new HashMap<>();
+
+        String fuel = (String) vhclInfo.get("fuel");
+        String vhrno = (String) vhclInfo.get("vhrno");
+
+        // 1. 최신 검사 변수 조회 (기존 로직 재사용)
+        Map<String, Object> anlsVars = getLatestInspVarsByFuel(fuel, vhrno);
+        if (anlsVars == null) {
+            result.put("metricCharts", List.of());
+            return result;
+        }
+
+        // 2. 차트용 Row 데이터 조회
+        List<Map<String, Object>> rows;
+
+        if (fuel.contains("휘발유")) {
+            rows = vhclAnlsMapper.selectAnlsMetricDistYearG(anlsVars);
+        } else {
+            rows = List.of(); // 경유 추후 확장
+        }
+
+        // 3. Metric 기준으로 가공
+        Map<String, Map<String, Object>> metricMap = new LinkedHashMap<>();
+
+        for (Map<String, Object> row : rows) {
+            String metric = (String) row.get("METRIC_NM");
+            Object lim = row.get("LIM_DISP");
+
+            metricMap.computeIfAbsent(metric, k -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("metric", metric);
+                m.put("lim", lim);
+                m.put("values", new ArrayList<>());
+
+                // 내 차량
+                String myCol = METRIC_MYVAL_MAP.get(metric);
+                Object myValue = myCol != null ? anlsVars.get(myCol) : null;
+                m.put("myValue", myValue);
+
+                //System.out.println("[metric=" + metric + "] myValue=" + myValue);
+                return m;
+            });
+
+            List<Map<String, Object>> values = (List<Map<String, Object>>) metricMap.get(metric).get("values");
+
+            Map<String, Object> v = new HashMap<>();
+            v.put("val", row.get("VAL"));
+            v.put("cnt", row.get("CNT"));
+            values.add(v);
+        }
+
+        result.put("metricCharts", metricMap.values());
+        return result;
+    }
+
 }
